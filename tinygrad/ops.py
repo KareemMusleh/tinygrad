@@ -851,13 +851,7 @@ class RewriteContext:
     self.pm: PatternMatcher = pm
     self.ctx = ctx
     self.replace: dict[UOp, UOp] = {}
-  def top_down_rewrite(self, n:UOp) -> UOp:
-    if (rn := self.replace.get(n)) is not None: return rn
-    new_src = tuple(map(self.top_down_rewrite, n.src))
-    new_n = self.pm.rewrite(n, self.ctx) if new_src == n.src else UOp(n.op, n.dtype, new_src, n.arg)
-    self.replace[n] = ret = n if new_n is None else self.top_down_rewrite(new_n)
-    return ret
-  def top_down_rewrite_new(self, sink:UOp) -> UOp:
+  def top_down_rewrite(self, sink:UOp) -> UOp:
     def update_new(old, new):
       self.replace[old] = new
       if old in new2old:
@@ -887,15 +881,6 @@ class RewriteContext:
     return ret
 
 def graph_rewrite(sink:UOp, pm:PatternMatcher, ctx=None, bottom_up=False) -> UOp:
-  # # from copy import deepcopy
-  # # new_ctx = deepcopy(ctx)
-  # if not bottom_up:
-  #   assert (o1 := (r1 := RewriteContext(pm, new_ctx)).top_down_rewrite_new(sink)) == (o2:=(r2 := RewriteContext(pm, ctx)).top_down_rewrite(sink))
-  # else:
-  #   assert (o1 := (r1 := RewriteContext(pm, new_ctx)).bottom_up_rewrite(sink)) == (o2:=(r2 := RewriteContext(pm, ctx)).bottom_up_rewrite(sink))
-  # assert ctx == new_ctx
-  # assert r2.replace == r1.replace
-  # return o1
   if TRACK_MATCH_STATS >= 2 and not bottom_up and len(tracked_ctxs) != 0: # TODO: make viz work with bottom_up=True
     tracked_ctxs[-1].append(TrackedGraphRewrite(((frm:=sys._getframe(1)).f_code.co_filename, frm.f_lineno), sink))
   return RewriteContext(pm, ctx).bottom_up_rewrite(sink) if bottom_up else RewriteContext(pm, ctx).top_down_rewrite(sink)
